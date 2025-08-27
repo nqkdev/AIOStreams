@@ -57,9 +57,17 @@ class Proxifier {
     if (streamsToProxy.length === 0) {
       return streams;
     }
-    logger.info(`Proxying ${streamsToProxy.length} streams`);
 
     const proxy = createProxy(this.userData.proxy);
+
+    const proxyIp = await proxy.getPublicIp();
+    if (this.userData.ip === proxyIp) {
+      logger.info(`Skip proxying as same IP detected for user and proxy`)
+      return streams;
+    }
+
+    logger.info(`Proxying ${streamsToProxy.length} streams`);
+
 
     const proxiedUrls = streamsToProxy.length
       ? await proxy.generateUrls(

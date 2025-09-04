@@ -1,5 +1,65 @@
 # Changelog
 
+## [2.12.2](https://github.com/Viren070/AIOStreams/compare/v2.12.1...v2.12.2) (2025-09-02)
+
+
+### Bug Fixes
+
+* await regexAllowed check in validateRegexes function ([be1a257](https://github.com/Viren070/AIOStreams/commit/be1a257477f8a8f82a49b06e1cc35dc526c79f6e))
+* **debridio-scraper:** add debrider to supported services ([24d0974](https://github.com/Viren070/AIOStreams/commit/24d097464c3a09f65dec5a16726786cc61d85e66))
+* move cache hit message into debug level ([c515e19](https://github.com/Viren070/AIOStreams/commit/c515e19f196ce3b8c42604bf6c1f0c36f3f615c1))
+
+## [2.12.1](https://github.com/Viren070/AIOStreams/compare/v2.12.0...v2.12.1) (2025-08-31)
+
+
+### Bug Fixes
+
+* add groups to pro mode ([cc51cc0](https://github.com/Viren070/AIOStreams/commit/cc51cc006c4fe19897219b1280a88d30e3f05c55))
+* assign trusted and ip in userdata for search api ([78c94df](https://github.com/Viren070/AIOStreams/commit/78c94dfec3d56757f77aeb4ddc1435f282972c80))
+* handle default undefined value of select-with-custom during validation ([6acc26f](https://github.com/Viren070/AIOStreams/commit/6acc26f9879874fbbfc3cc4e4420280e464a0a2c))
+* make global size filter optional to allow only resolution-specific ([735bba5](https://github.com/Viren070/AIOStreams/commit/735bba5e33436753eea630a7079ece6be67fb14a))
+* remove debug logging in year matching ([408a288](https://github.com/Viren070/AIOStreams/commit/408a28825942186bdc94001658cb537b8f62d845))
+* remove size and type from default auto play attributes ([1968a1c](https://github.com/Viren070/AIOStreams/commit/1968a1c7e18be78064d94bceb64eb9c17eef234f))
+* remove trailing slashes in presetUrls validator ([f613772](https://github.com/Viren070/AIOStreams/commit/f6137721adf7316dc077e9c46eaccfc1be1742ba))
+* support year ranges during year matching ([a39a85b](https://github.com/Viren070/AIOStreams/commit/a39a85b97ba0f28aa927bee3fb8232b34ad6d502))
+* update alias route to handle requested path correctly with express 5 ([bd88d3d](https://github.com/Viren070/AIOStreams/commit/bd88d3de8b534fba227881b68d4dfdf93081f0cb))
+* use partial record instead of record in schemas ([61cd2bc](https://github.com/Viren070/AIOStreams/commit/61cd2bc29e1e1c53b4add011b8352be24b49c574))
+* use slice instead of splice to avoid modifying value of environment variable ([ee2ea41](https://github.com/Viren070/AIOStreams/commit/ee2ea419ba3c8d03403b0d02540c4d324d496a24))
+
+## [2.12.0](https://github.com/Viren070/AIOStreams/compare/v2.11.6...v2.12.0) (2025-08-30)
+
+
+### Features
+
+* add pro/noob mode ([571ea7f](https://github.com/Viren070/AIOStreams/commit/571ea7fbc30f5216cbe439be7333b310eafbb2c1))
+* add search API ([571ea7f](https://github.com/Viren070/AIOStreams/commit/571ea7fbc30f5216cbe439be7333b310eafbb2c1))
+* add stream type as auto play attribute ([571ea7f](https://github.com/Viren070/AIOStreams/commit/571ea7fbc30f5216cbe439be7333b310eafbb2c1))
+* allow specifying multiple URLs for comet and mediafusion in .env ([571ea7f](https://github.com/Viren070/AIOStreams/commit/571ea7fbc30f5216cbe439be7333b310eafbb2c1))
+* **frontend:** move more stuff into pro only mode ([c68bb0e](https://github.com/Viren070/AIOStreams/commit/c68bb0e60ecf421f1f59a7b7edebb52a5cd15266))
+* move more stuff into pro only ([73ccd15](https://github.com/Viren070/AIOStreams/commit/73ccd15f7e11351ae7b13acf15405b7330b10b2b))
+* remove `ALLOW_UNAUTHENTICATED_SEARCH_API` env var ([df97bde](https://github.com/Viren070/AIOStreams/commit/df97bde45cd058e3c6e68645e495bb054ef557a0))
+* use redis store in rate limiter when possible ([571ea7f](https://github.com/Viren070/AIOStreams/commit/571ea7fbc30f5216cbe439be7333b310eafbb2c1))
+
+
+### Bug Fixes
+
+* add rate limit to legacy endpoint ([0702d4f](https://github.com/Viren070/AIOStreams/commit/0702d4fb932a8cd601d8cac329ecef06be0dd76f))
+* allow empty credential value in schema and add min length constraint for config validation ([4962465](https://github.com/Viren070/AIOStreams/commit/49624654b6f5be852e455df23683f6edbdafa336))
+* behaviorHint passthrough in meta response ([571ea7f](https://github.com/Viren070/AIOStreams/commit/571ea7fbc30f5216cbe439be7333b310eafbb2c1))
+* ensure catalog resource has correct types ([9a5339e](https://github.com/Viren070/AIOStreams/commit/9a5339e1385e853daf6432acb7df41a5ee16b2a6))
+* **frontend:** dynamically determine menus based on mode ([5e969ff](https://github.com/Viren070/AIOStreams/commit/5e969ff2dc46d0d0897b86b7df0452e80da84f20))
+* give priority to URL/service over infoHash ([085d394](https://github.com/Viren070/AIOStreams/commit/085d394c03c33cee6b30ba26026a19e5e0fdfd10))
+* remove required attribute from service credential fields, ([571ea7f](https://github.com/Viren070/AIOStreams/commit/571ea7fbc30f5216cbe439be7333b310eafbb2c1))
+* set value of default URL to undefined so updates to env apply for all users when using multiple URLs ([a3007e6](https://github.com/Viren070/AIOStreams/commit/a3007e659f57ea61edfba2e8066f67853d58eeec))
+
+## [2.11.6](https://github.com/Viren070/AIOStreams/compare/v2.11.5...v2.11.6) (2025-08-28)
+
+
+### Bug Fixes
+
+* correctly extract json error for error metas ([5ddab33](https://github.com/Viren070/AIOStreams/commit/5ddab3308219aa17c0f89b3d522d3408f20e2ebf))
+* **presets/aiostreams:** passthrough the proxied attribute ([62bf6de](https://github.com/Viren070/AIOStreams/commit/62bf6de6d9087ee5cd74942585b286fd2eda8296)), closes [#321](https://github.com/Viren070/AIOStreams/issues/321)
+
 ## [2.11.5](https://github.com/Viren070/AIOStreams/compare/v2.11.4...v2.11.5) (2025-08-26)
 
 

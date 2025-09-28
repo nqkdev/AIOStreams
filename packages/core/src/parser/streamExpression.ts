@@ -1,5 +1,9 @@
 import { Parser } from 'expr-eval';
-import { ParsedStream, ParsedStreams, ParsedStreamSchema } from '../db';
+import {
+  ParsedStream,
+  ParsedStreams,
+  ParsedStreamSchema,
+} from '../db/schemas.js';
 import bytes from 'bytes';
 
 export abstract class StreamExpressionEngine {
@@ -44,7 +48,7 @@ export abstract class StreamExpressionEngine {
         trunc: false,
         exp: false,
         length: false,
-        in: false,
+        in: true,
         random: false,
         min: true,
         max: true,
@@ -520,6 +524,9 @@ export abstract class StreamExpressionEngine {
         resolve(result);
       } catch (error) {
         clearTimeout(timeout);
+        if (error instanceof Error) {
+          error.message = `Expression could not be evaluated: ${error.message}`;
+        }
         reject(error);
       }
     });
@@ -603,6 +610,38 @@ export abstract class StreamExpressionEngine {
   }
 }
 
+export class ExitConditionEvaluator extends StreamExpressionEngine {
+  constructor(
+    private totalStreams: ParsedStream[],
+    private totalTimeTaken: number,
+    private queryType: string,
+    private queriedAddons: string[],
+    private allAddons: string[]
+  ) {
+    super();
+    this.parser.consts.totalStreams = this.totalStreams;
+    this.parser.consts.totalTimeTaken = this.totalTimeTaken;
+    this.parser.consts.queryType = this.queryType;
+    this.parser.consts.queriedAddons = this.queriedAddons;
+    this.parser.consts.allAddons = this.allAddons;
+  }
+
+  async evaluate(condition: string) {
+    return await this.evaluateCondition(condition);
+  }
+
+  static async testEvaluate(condition: string) {
+    const parser = new ExitConditionEvaluator(
+      [],
+      200,
+      'movie',
+      ['Test Addon'],
+      ['Test Addon']
+    );
+    return await parser.evaluate(condition);
+  }
+}
+
 export class GroupConditionEvaluator extends StreamExpressionEngine {
   private previousStreams: ParsedStream[];
   private totalStreams: ParsedStream[];
@@ -642,8 +681,11 @@ export class GroupConditionEvaluator extends StreamExpressionEngine {
 }
 
 export class StreamSelector extends StreamExpressionEngine {
-  constructor() {
+  private queryType: string;
+  constructor(queryType: string) {
     super();
+    this.queryType = queryType;
+    this.parser.consts.queryType = queryType;
   }
 
   async select(
@@ -674,7 +716,7 @@ export class StreamSelector extends StreamExpressionEngine {
   }
 
   static async testSelect(condition: string): Promise<ParsedStream[]> {
-    const parser = new StreamSelector();
+    const parser = new StreamSelector('movie');
     const streams = [
       parser.createTestStream({ type: 'debrid' }),
       parser.createTestStream({ type: 'debrid' }),

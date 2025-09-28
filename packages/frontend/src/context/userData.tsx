@@ -7,6 +7,82 @@ import {
 } from '../../../core/src/utils/constants';
 import { useStatus } from './status';
 
+const USER_DATA_KEY = 'aiostreams-user-data';
+
+export function applyMigrations(config: any): UserData {
+  if (
+    config.deduplicator &&
+    typeof config.deduplicator.multiGroupBehaviour === 'string'
+  ) {
+    switch (config.deduplicator.multiGroupBehaviour as string) {
+      case 'remove_uncached':
+        config.deduplicator.multiGroupBehaviour = 'aggressive';
+        break;
+      case 'remove_uncached_same_service':
+        config.deduplicator.multiGroupBehaviour = 'conservative';
+        break;
+      case 'remove_nothing':
+        config.deduplicator.multiGroupBehaviour = 'keep_all';
+        break;
+    }
+  }
+  if (config.titleMatching?.matchYear) {
+    config.yearMatching = {
+      enabled: true,
+      tolerance: config.titleMatching.yearTolerance
+        ? config.titleMatching.yearTolerance
+        : 1,
+      requestTypes: config.titleMatching.requestTypes ?? [],
+      addons: config.titleMatching.addons ?? [],
+    };
+    delete config.titleMatching.matchYear;
+  }
+
+  if (Array.isArray(config.groups)) {
+    config.groups = {
+      enabled: config.disableGroups ? false : true,
+      groupings: config.groups,
+      behaviour: 'parallel',
+    };
+  }
+
+  if (config.showStatistics || config.statisticsPosition) {
+    config.statistics = {
+      enabled: config.showStatistics ?? false,
+      position: config.statisticsPosition ?? 'bottom',
+      statsToShow: ['addon', 'filter'],
+      ...(config.statistics ?? {}),
+    };
+    delete config.showStatistics;
+    delete config.statisticsPosition;
+  }
+
+  const migrateHOSBS = (
+    type: 'preferred' | 'required' | 'excluded' | 'included'
+  ) => {
+    if (Array.isArray(config[type + 'Encodes'])) {
+      config[type + 'Encodes'] = config[type + 'Encodes'].filter(
+        (encode: string) => {
+          if (encode === 'H-OU' || encode === 'H-SBS') {
+            config[type + 'VisualTags'] = [
+              ...(config[type + 'VisualTags'] ?? []),
+              encode,
+            ];
+            return false;
+          }
+          return true;
+        }
+      );
+    }
+  };
+
+  migrateHOSBS('preferred');
+  migrateHOSBS('required');
+  migrateHOSBS('excluded');
+  migrateHOSBS('included');
+
+  return config;
+}
 const DefaultUserData: UserData = {
   services: Object.values(SERVICE_DETAILS).map((service) => ({
     id: service.id,
@@ -68,12 +144,28 @@ const UserDataContext = React.createContext<UserDataContextType | undefined>(
 
 export function UserDataProvider({ children }: { children: React.ReactNode }) {
   const { status } = useStatus();
-  const [userData, setUserData] = React.useState<UserData>(DefaultUserData);
+
+  // Initialize userData from local storage or apply default
+  const [userData, setUserData] = React.useState<UserData>(() => {
+    try {
+      const stored = localStorage.getItem(USER_DATA_KEY);
+      const data = stored ? JSON.parse(stored) : DefaultUserData;
+      return applyMigrations(data);
+    } catch {
+      return DefaultUserData;
+    }
+  });
+
   const [uuid, setUuid] = React.useState<string | null>(null);
   const [password, setPassword] = React.useState<string | null>(null);
   const [encryptedPassword, setEncryptedPassword] = React.useState<
     string | null
   >(null);
+
+  // Effect to persist userData to local storage
+  React.useEffect(() => {
+    localStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
+  }, [userData]);
 
   // Effect to apply forced and default values from status
   React.useEffect(() => {
@@ -131,10 +223,7 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
     data: ((prev: UserData) => UserData | null) | null
   ) => {
     if (data === null) {
-      setUserData((prev) => ({
-        ...prev,
-        ...DefaultUserData,
-      }));
+      setUserData(DefaultUserData);
     } else {
       setUserData((prev) => {
         const result = data(prev);

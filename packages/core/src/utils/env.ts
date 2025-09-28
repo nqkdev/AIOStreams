@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import {
   cleanEnv,
   str,
@@ -13,9 +14,14 @@ import {
   port,
   EnvMissingError,
 } from 'envalid';
-import { ResourceManager } from './resources';
-import * as constants from './constants';
+import { ResourceManager } from './resources.js';
+import * as constants from './constants.js';
 import { randomBytes } from 'crypto';
+
+// Get __dirname equivalent in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 try {
   dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 } catch (error) {
@@ -92,9 +98,12 @@ const namedRegexes = makeValidator((x) => {
 const removeTrailingSlash = (x: string) =>
   x.endsWith('/') ? x.slice(0, -1) : x;
 
-const presetUrls = makeExactValidator<readonly string[]>((x) => {
+const urlOrUrlList = makeExactValidator<readonly string[]>((x) => {
+  if (!x) {
+    return [];
+  }
   if (typeof x !== 'string') {
-    throw new EnvError('Preset URLs must be a string or an array of strings');
+    throw new EnvError('List of URLs must be a string or an array of strings');
   }
   const validateUrl = (x: string) => {
     try {
@@ -108,7 +117,7 @@ const presetUrls = makeExactValidator<readonly string[]>((x) => {
     const urls = JSON.parse(x);
     if (!Array.isArray(urls) || urls.some((x) => !validateUrl(x))) {
       throw new EnvError(
-        'Preset URLs must be an array of URLs or a single URL'
+        'List of URLs must be an array of URLs or a single URL'
       );
     }
     return Object.freeze(urls.map(removeTrailingSlash));
@@ -304,9 +313,21 @@ export const Env = cleanEnv(process.env, {
     default: 3000,
     desc: 'Port to run the addon on',
   }),
+  PTT_PORT: port({
+    default: 3001,
+    desc: 'Port to run the PTT server on (only used on Windows)',
+  }),
+  PTT_SOCKET: str({
+    default: '/tmp/ptt.sock',
+    desc: 'Socket to run the PTT server on',
+  }),
   CUSTOM_HTML: str({
     default: undefined,
     desc: 'Custom HTML for the addon',
+  }),
+  ALTERNATE_DESIGN: bool({
+    default: false,
+    desc: 'Alternate design for the frontend.',
   }),
   SECRET_KEY: secretKey({
     desc: 'Secret key for the addon, used for encryption and must be 64 characters of hex',
@@ -329,13 +350,13 @@ export const Env = cleanEnv(process.env, {
     default: 500,
     desc: 'Redis timeout for the addon',
   }),
-  ADDON_PROXY: url({
+  ADDON_PROXY: urlOrUrlList({
     default: undefined,
     desc: 'Proxy URL for the addon',
   }),
   ADDON_PROXY_CONFIG: str({
     default: undefined,
-    desc: 'Proxy config for the addon in format of comma separated hostname:boolean',
+    desc: 'Proxy config for the addon in format of comma separated hostname:(boolean|number). If you have multiple proxies, use a number to specify the index of the proxy. (starts from 0)',
   }),
   REQUEST_URL_MAPPINGS: urlMappings({
     default: undefined,
@@ -357,6 +378,14 @@ export const Env = cleanEnv(process.env, {
     default: undefined,
     desc: 'TMDB API Key. Used for fetching metadata for the strict title matching option.',
   }),
+  TVDB_API_KEY: str({
+    default: undefined,
+    desc: 'TVDB API Key. Used for fetching metadata.',
+  }),
+  TRAKT_CLIENT_ID: str({
+    default: undefined,
+    desc: 'Trakt Client ID. Used for fetching Trakt aliases.',
+  }),
   PROVIDE_STREAM_DATA: boolOrList<boolean | string[] | undefined>({
     default: undefined,
     desc: 'Provide stream data to the client in stream responses. Required for users to wrap this addon within another AIOStreams instance.',
@@ -368,6 +397,31 @@ export const Env = cleanEnv(process.env, {
   ENABLE_SEARCH_API: bool({
     default: true,
     desc: 'Enable the search API. If true, the search API will be enabled.',
+  }),
+  ANIME_DB_LEVEL_OF_DETAIL: str({
+    default: 'required',
+    desc: 'Detail level for the anime database. none: no anime database, required: only load the required databases, full: load all data',
+    choices: ['none', 'required', 'full'],
+  }),
+  ANIME_DB_FRIBB_MAPPINGS_REFRESH_INTERVAL: num({
+    default: 24 * 60 * 60 * 1000, // 24 hours
+    desc: 'Interval for refreshing the anime mappings in milliseconds',
+  }),
+  ANIME_DB_MANAMI_DB_REFRESH_INTERVAL: num({
+    default: 7 * 24 * 60 * 60 * 1000, // 7 days
+    desc: 'Interval for refreshing the Manami anime offline database in milliseconds',
+  }),
+  ANIME_DB_KITSU_IMDB_MAPPING_REFRESH_INTERVAL: num({
+    default: 24 * 60 * 60 * 1000, // 24 hours
+    desc: 'Interval for refreshing the Kitsu IMDB mapping in milliseconds',
+  }),
+  ANIME_DB_EXTENDED_ANITRAKT_MOVIES_REFRESH_INTERVAL: num({
+    default: 24 * 60 * 60 * 1000, // 24 hours
+    desc: 'Interval for refreshing the Extended Anitrakt Movies in milliseconds',
+  }),
+  ANIME_DB_EXTENDED_ANITRAKT_TV_REFRESH_INTERVAL: num({
+    default: 24 * 60 * 60 * 1000, // 24 hours
+    desc: 'Interval for refreshing the Extended Anitrakt TV in milliseconds',
   }),
   // logging settings
   LOG_SENSITIVE_INFO: bool({
@@ -444,7 +498,7 @@ export const Env = cleanEnv(process.env, {
     desc: 'Cache TTL for proxy IPs',
   }),
   MANIFEST_CACHE_TTL: num({
-    default: 300,
+    default: 21600,
     desc: 'Cache TTL for manifest files',
   }),
   MANIFEST_CACHE_MAX_SIZE: num({
@@ -561,6 +615,10 @@ export const Env = cleanEnv(process.env, {
   MANIFEST_TIMEOUT: num({
     default: 3000,
     desc: 'Timeout for manifest requests',
+  }),
+  MANIFEST_INCREASED_TIMEOUT: num({
+    default: 10000,
+    desc: 'Increased timeout for manifest requests',
   }),
 
   BACKGROUND_RESOURCE_REQUEST_TIMEOUT: num({
@@ -805,7 +863,7 @@ export const Env = cleanEnv(process.env, {
     desc: 'AIOStreams user agent',
   }),
 
-  COMET_URL: presetUrls({
+  COMET_URL: urlOrUrlList({
     default: ['https://comet.elfhosted.com'],
     desc: 'Comet URL',
   }),
@@ -832,7 +890,7 @@ export const Env = cleanEnv(process.env, {
   }),
 
   // MediaFusion settings
-  MEDIAFUSION_URL: presetUrls({
+  MEDIAFUSION_URL: urlOrUrlList({
     default: ['https://mediafusion.elfhosted.com'],
     desc: 'MediaFusion URL',
   }),
@@ -858,7 +916,7 @@ export const Env = cleanEnv(process.env, {
   }),
 
   // Jackettio settings
-  JACKETTIO_URL: presetUrls({
+  JACKETTIO_URL: urlOrUrlList({
     default: ['https://jackettio.elfhosted.com'],
     desc: 'Jackettio URL',
   }),
@@ -1035,7 +1093,7 @@ export const Env = cleanEnv(process.env, {
   }),
 
   DEBRIDIO_TV_URL: url({
-    default: 'https://tv-addon.debridio.com',
+    default: 'https://tv.lb.debridio.com',
     desc: 'Debridio TV URL',
   }),
   DEFAULT_DEBRIDIO_TV_TIMEOUT: num({
@@ -1061,8 +1119,8 @@ export const Env = cleanEnv(process.env, {
   }),
 
   // StremThru Store settings
-  STREMTHRU_STORE_URL: presetUrls({
-    default: ['https://stremthru.elfhosted.com/stremio/store'],
+  STREMTHRU_STORE_URL: urlOrUrlList({
+    default: ['https://stremthru.13377001.xyz/stremio/store'],
     desc: 'StremThru Store URL',
   }),
   DEFAULT_STREMTHRU_STORE_TIMEOUT: num({
@@ -1088,8 +1146,8 @@ export const Env = cleanEnv(process.env, {
   }),
 
   // StremThru Torz settings
-  STREMTHRU_TORZ_URL: presetUrls({
-    default: ['https://stremthru.elfhosted.com/stremio/torz'],
+  STREMTHRU_TORZ_URL: urlOrUrlList({
+    default: ['https://stremthru.13377001.xyz/stremio/torz'],
     desc: 'StremThru Torz URL',
   }),
   DEFAULT_STREMTHRU_TORZ_TIMEOUT: num({
@@ -1129,6 +1187,19 @@ export const Env = cleanEnv(process.env, {
   DEFAULT_STREAMFUSION_STREMTHRU_URL: url({
     default: 'https://stremthru.13377001.xyz',
     desc: 'Default StreamFusion StremThru URL',
+  }),
+
+  SOOTIO_URL: urlOrUrlList({
+    default: ['https://sootio.elfhosted.com'],
+    desc: 'Sootio URL',
+  }),
+  DEFAULT_SOOTIO_TIMEOUT: num({
+    default: undefined,
+    desc: 'Default Sootio timeout',
+  }),
+  DEFAULT_SOOTIO_USER_AGENT: userAgent({
+    default: undefined,
+    desc: 'Default Sootio user agent',
   }),
 
   // DMM Cast settings
@@ -1522,6 +1593,43 @@ export const Env = cleanEnv(process.env, {
     default: 'https://stremthru.13377001.xyz',
     desc: 'Builtin StremThru URL',
   }),
+  BUILTIN_DEBRID_INSTANT_AVAILABILITY_CACHE_TTL: num({
+    default: 60 * 30, // 30 minutes
+    desc: 'Builtin Debrid instant availability cache TTL',
+  }),
+  BUILTIN_DEBRID_PLAYBACK_LINK_CACHE_TTL: num({
+    default: 60 * 60, // 1 hour
+    desc: 'Builtin Debrid playback link cache TTL',
+  }),
+  BUILTIN_SCRAPE_WITH_ALL_TITLES: boolOrList({
+    default: false,
+    desc: 'Whether to use alternative titles during scraping for built-in addons. Set to true, false, or a comma separated list of hostnames',
+  }),
+  BUILTIN_SCRAPE_TITLE_LIMIT: num({
+    default: 3,
+    desc: 'Builtin Scrape title limit',
+  }),
+  BUILTIN_SCRAPE_QUERY_CONCURRENCY: num({
+    default: 5,
+    desc: 'Builtin Scrape query concurrency limit',
+  }),
+
+  BUILTIN_GET_TORRENT_TIMEOUT: num({
+    default: 5000,
+    desc: 'Builtin Get Torrent timeout',
+  }),
+  BUILTIN_GET_TORRENT_CONCURRENCY: num({
+    default: 100,
+    desc: 'Builtin Get Torrent concurrency limit',
+  }),
+  BUILTIN_GET_TORRENT_LAZILY: bool({
+    default: true,
+    desc: 'Get the torrent links lazily (in the background). First search will return only the available results while torrent fetches happen in the background.',
+  }),
+  BUILTIN_TORRENT_METADATA_CACHE_TTL: num({
+    default: 7 * 24 * 60 * 60, // 7 days
+    desc: 'Builtin Torrent metadata cache TTL',
+  }),
 
   BUILTIN_GDRIVE_CLIENT_ID: str({
     default: undefined,
@@ -1557,28 +1665,156 @@ export const Env = cleanEnv(process.env, {
     desc: 'Builtin TorBox Search search API timeout',
   }),
   BUILTIN_TORBOX_SEARCH_SEARCH_API_CACHE_TTL: num({
-    default: 1 * 60 * 60, // 1 hour
+    default: 7 * 24 * 60 * 60, // 7 days
     desc: 'Builtin TorBox Search search API cache TTL',
   }),
   BUILTIN_TORBOX_SEARCH_METADATA_CACHE_TTL: num({
-    default: 7 * 24 * 60 * 60, // 7 days
+    default: 14 * 24 * 60 * 60, // 14 days
     desc: 'Builtin TorBox Search metadata cache TTL',
-  }),
-  BUILTIN_TORBOX_SEARCH_INSTANT_AVAILABILITY_CACHE_TTL: num({
-    default: 15 * 60, // 15 minutes
-    desc: 'Builtin TorBox Search instant availability cache TTL',
   }),
   BUILTIN_TORBOX_SEARCH_CACHE_PER_USER_SEARCH_ENGINE: bool({
     default: false,
     desc: 'Whether to cache results separately for every user that is using their own search engines.',
   }),
 
+  BUILTIN_NAB_SEARCH_TIMEOUT: num({
+    default: 30000, // 30 seconds
+    desc: 'Builtin Torznab/Newznab Search timeout',
+  }),
+  BUILTIN_NAB_SEARCH_CACHE_TTL: num({
+    default: 7 * 24 * 60 * 60, // 7 days
+    desc: 'Builtin Torznab/Newznab Search cache TTL',
+  }),
+  BUILTIN_NAB_CAPABILITIES_CACHE_TTL: num({
+    default: 14 * 24 * 60 * 60, // 14 days
+    desc: 'Builtin Torznab/Newznab Capabilities cache TTL',
+  }),
+
+  BUILTIN_ZILEAN_URL: url({
+    default: 'https://zilean.elfhosted.com',
+    desc: 'Builtin Zilean URL',
+  }),
+  BUILTIN_DEFAULT_ZILEAN_TIMEOUT: num({
+    default: undefined,
+    desc: 'Builtin Zilean timeout',
+  }),
+
+  BUILTIN_ANIMETOSHO_URL: url({
+    default: 'https://feed.animetosho.org',
+    desc: 'Builtin AnimeTosho URL',
+  }),
+  BUILTIN_DEFAULT_ANIMETOSHO_TIMEOUT: num({
+    default: undefined,
+    desc: 'Builtin AnimeTosho timeout',
+  }),
+
+  BUILTIN_BITMAGNET_URL: url({
+    default: undefined,
+    desc: 'Builtin Bitmagnet URL',
+  }),
+  BUILTIN_DEFAULT_BITMAGNET_TIMEOUT: num({
+    default: undefined,
+    desc: 'Builtin Bitmagnet timeout',
+  }),
+
+  BUILTIN_JACKETT_URL: url({
+    default: undefined,
+    desc: 'Builtin Jackett URL',
+  }),
+  BUILTIN_JACKETT_API_KEY: str({
+    default: undefined,
+    desc: 'Builtin Jackett API Key',
+  }),
+  BUILTIN_DEFAULT_JACKETT_TIMEOUT: num({
+    default: undefined,
+    desc: 'Builtin Jackett timeout',
+  }),
+
+  BUILTIN_NZBHYDRA_URL: url({
+    default: undefined,
+    desc: 'Builtin NZBHydra URL',
+  }),
+  BUILTIN_NZBHYDRA_API_KEY: str({
+    default: undefined,
+    desc: 'Builtin NZBHydra API Key',
+  }),
+  BUILTIN_DEFAULT_NZBHYDRA_TIMEOUT: num({
+    default: undefined,
+    desc: 'Builtin NZBHydra timeout',
+  }),
+
+  BUILTIN_PROWLARR_URL: url({
+    default: undefined,
+    desc: 'Builtin Prowlarr URL',
+  }),
+  BUILTIN_PROWLARR_API_KEY: str({
+    default: undefined,
+    desc: 'Builtin Prowlarr API Key',
+  }),
+  BUILTIN_PROWLARR_INDEXERS: commaSeparated({
+    default: undefined,
+    desc: 'Comma separated list of prowlarr indexers to use.',
+  }),
+  BUILTIN_DEFAULT_PROWLARR_TIMEOUT: num({
+    default: undefined,
+    desc: 'Default timeout for the builtin Prowlarr addon.',
+  }),
+  BUILTIN_PROWLARR_SEARCH_TIMEOUT: num({
+    default: 30000, // 30 seconds
+    desc: 'Builtin Prowlarr Search timeout',
+  }),
+  BUILTIN_PROWLARR_SEARCH_CACHE_TTL: num({
+    default: 7 * 24 * 60 * 60, // 7 days
+    desc: 'Builtin Prowlarr Search cache TTL',
+  }),
+  BUILTIN_PROWLARR_INDEXERS_CACHE_TTL: num({
+    default: 14 * 24 * 60 * 60, // 14 days
+    desc: 'Builtin Prowlarr Indexers cache TTL',
+  }),
+
+  BUILTIN_DEFAULT_KNABEN_TIMEOUT: num({
+    default: undefined,
+    desc: 'Builtin Knaben timeout',
+  }),
+  BUILTIN_KNABEN_SEARCH_TIMEOUT: num({
+    default: 30000, // 30 seconds
+    desc: 'Builtin Knaben Search timeout',
+  }),
+  BUILTIN_KNABEN_SEARCH_CACHE_TTL: num({
+    default: 7 * 24 * 60 * 60, // 7 days
+    desc: 'Builtin Knaben Search cache TTL',
+  }),
+
+  BUILTIN_TORRENT_GALAXY_URL: url({
+    default: 'https://torrentgalaxy.space',
+    desc: 'Builtin Torrent Galaxy URL',
+  }),
+  BUILTIN_DEFAULT_TORRENT_GALAXY_TIMEOUT: num({
+    default: undefined,
+    desc: 'Builtin Torrent Galaxy timeout',
+  }),
+  BUILTIN_TORRENT_GALAXY_SEARCH_TIMEOUT: num({
+    default: 30000, // 30 seconds
+    desc: 'Builtin Torrent Galaxy Search timeout',
+  }),
+  BUILTIN_TORRENT_GALAXY_SEARCH_CACHE_TTL: num({
+    default: 7 * 24 * 60 * 60, // 7 days
+    desc: 'Builtin Torrent Galaxy Search cache TTL',
+  }),
+  BUILTIN_TORRENT_GALAXY_PAGE_LIMIT: num({
+    default: 5,
+    desc: 'The maximum number of pages to fetch.',
+  }),
   // Rate limiting settings
   DISABLE_RATE_LIMITS: bool({
     default: false,
     desc: 'Disable rate limiting',
   }),
-
+  RATE_LIMIT_STORE: str({
+    choices: ['memory', 'redis'],
+    default: 'memory',
+    desc: 'The store to use for rate limiting',
+  }),
   STATIC_RATE_LIMIT_WINDOW: num({
     default: 5, // 1 minute
     desc: 'Time window for static file serving rate limiting in seconds',
@@ -1614,6 +1850,14 @@ export const Env = cleanEnv(process.env, {
   }),
   CATALOG_API_RATE_LIMIT_MAX_REQUESTS: num({
     default: 5, // allow 100 requests per IP per minute
+  }),
+  ANIME_API_RATE_LIMIT_WINDOW: num({
+    default: 60, // 1 minute
+    desc: 'Time window for mappings API rate limiting in seconds',
+  }),
+  ANIME_API_RATE_LIMIT_MAX_REQUESTS: num({
+    default: 120,
+    desc: 'Maximum number of requests allowed per IP within the time window',
   }),
   STREMIO_STREAM_RATE_LIMIT_WINDOW: num({
     default: 15, // 1 minute

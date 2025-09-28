@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { TextInput } from '@/components/ui/text-input';
-import { useUserData } from '@/context/userData';
+import { applyMigrations, useUserData } from '@/context/userData';
 import { UserConfigAPI } from '@/services/api';
 import { PageWrapper } from '@/components/shared/page-wrapper';
 import { Alert } from '@/components/ui/alert';
@@ -62,9 +62,21 @@ function Content() {
   const passwordModal = useDisclosure(false);
   const [filterCredentialsInExport, setFilterCredentialsInExport] =
     React.useState(false);
-  const deleteModal = useDisclosure(false);
-  const [deletePassword, setDeletePassword] = React.useState('');
+  const deleteUserModal = useDisclosure(false);
+  const [confirmDeletionPassword, setConfirmDeletionPassword] =
+    React.useState('');
   const { setSelectedMenu, firstMenu } = useMenu();
+  const confirmResetProps = useConfirmationDialog({
+    title: 'Confirm Reset',
+    description: `Are you sure you want to reset your configuration? This will clear all your settings${uuid ? ` but keep your user account` : ''}. This action cannot be undone.`,
+    actionText: 'Reset',
+    actionIntent: 'alert',
+    onConfirm: () => {
+      setUserData(null);
+      setSelectedMenu(firstMenu);
+      toast.success('Configuration reset successfully');
+    },
+  });
   const confirmDelete = useConfirmationDialog({
     title: 'Confirm Deletion',
     description:
@@ -164,7 +176,9 @@ function Content() {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const json = JSON.parse(event.target?.result as string);
+        const json = applyMigrations(
+          JSON.parse(event.target?.result as string)
+        );
         // const validate = UserDataSchema.safeParse(json);
         // if (!validate.success) {
         //   toast.error('Failed to import configuration: Invalid JSON file');
@@ -195,6 +209,7 @@ function Content() {
           ? undefined
           : userData.tmdbAccessToken,
         tmdbApiKey: filterCredentialsInExport ? undefined : userData.tmdbApiKey,
+        tvdbApiKey: filterCredentialsInExport ? undefined : userData.tvdbApiKey,
         rpdbApiKey: filterCredentialsInExport ? undefined : userData.rpdbApiKey,
         services: userData?.services?.map((service) => ({
           ...service,
@@ -269,7 +284,10 @@ function Content() {
         return;
       }
 
-      const result = await UserConfigAPI.deleteUser(uuid, deletePassword);
+      const result = await UserConfigAPI.deleteUser(
+        uuid,
+        confirmDeletionPassword
+      );
 
       if (!result.success) {
         if (result.error?.code === 'USER_INVALID_DETAILS') {
@@ -289,7 +307,7 @@ function Content() {
       setPassword(null);
       setUserData(null);
       setSelectedMenu(firstMenu);
-      deleteModal.close();
+      deleteUserModal.close();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Failed to delete configuration'
@@ -559,20 +577,27 @@ function Content() {
           </div>
         </SettingsCard>
 
-        {uuid && (
-          <SettingsCard
-            title="Delete Configuration"
-            description="Delete your configuration and all associated data"
-          >
-            <Button intent="alert" rounded onClick={deleteModal.open}>
-              Delete
+        <SettingsCard
+          title="Danger Zone"
+          description="Perform potentially destructive actions that cannot be undone"
+          className="lg:bg-red-950/70 border-red-500/20"
+          titleClassName="group-hover/settings-card:from-red-500/10 group-hover/settings-card:to-red-950/20"
+        >
+          <div className="flex items-center gap-3">
+            {uuid && (
+              <Button intent="alert" rounded onClick={deleteUserModal.open}>
+                Delete User
+              </Button>
+            )}
+            <Button intent="alert" rounded onClick={confirmResetProps.open}>
+              Reset Configuration
             </Button>
-          </SettingsCard>
-        )}
+          </div>
+        </SettingsCard>
 
         <Modal
-          open={deleteModal.isOpen}
-          onOpenChange={deleteModal.toggle}
+          open={deleteUserModal.isOpen}
+          onOpenChange={deleteUserModal.toggle}
           title="Delete Configuration"
           description={
             <Alert
@@ -584,7 +609,7 @@ function Content() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (!deletePassword) {
+              if (!confirmDeletionPassword) {
                 toast.error('Please enter your password');
                 return;
               }
@@ -594,17 +619,17 @@ function Content() {
             <div className="space-y-4">
               <PasswordInput
                 label="Password"
-                value={deletePassword}
+                value={confirmDeletionPassword}
                 required
                 placeholder="Enter your password to confirm deletion"
-                onValueChange={(value) => setDeletePassword(value)}
+                onValueChange={(value) => setConfirmDeletionPassword(value)}
               />
               <div className="pt-2">
                 <div className="grid grid-cols-2 gap-3 w-full">
                   <Button
                     type="button"
                     intent="gray-outline"
-                    onClick={deleteModal.close}
+                    onClick={deleteUserModal.close}
                     className="w-full"
                   >
                     Cancel
@@ -623,6 +648,7 @@ function Content() {
           </form>
         </Modal>
         <ConfirmationDialog {...confirmDelete} />
+        <ConfirmationDialog {...confirmResetProps} />
       </div>
     </>
   );
